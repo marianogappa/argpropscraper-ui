@@ -1,0 +1,204 @@
+<html>
+    <head>
+			<script src='/dist/sql-wasm.js'></script>
+			<style>
+				a{text-decoration:none; color:inherit; cursor:pointer;}
+				button{background-color:transparent; color:inherit; border-width:0; padding:0; cursor:pointer;}
+				figure{margin:0;}
+				input::-moz-focus-inner {border:0; padding:0; margin:0;}
+				ul, ol, dd{margin:0; padding:0; list-style:none;}
+				h1, h2, h3, h4, h5, h6{margin:0; font-size:inherit; font-weight:inherit;}
+				p{margin:0;}
+				cite {font-style:normal;}
+				fieldset{border-width:0; padding:0; margin:0;}
+				
+				#docs {
+					font-size: 16px;
+					padding: 5px;
+					padding-bottom: 10px;
+					font-family: 'Courier New', Courier, monospace;
+					width: 100%;
+				}
+				#query {
+					width: 100%;
+					font-size: 16px;
+					padding: 5px;
+					font-family: 'Courier New', Courier, monospace;
+					margin-bottom: 10px;
+				}
+				#result {
+					font-size: 16px;
+					display: flex;
+					font-family: 'Courier New', Courier, monospace;
+				}
+
+				div {
+					box-sizing: border-box;
+				}
+				.flex-table {
+					display: table;
+					width: 100%;
+					border: solid 1px #dfdfdf;
+					font-family: Arial, Helvetica, sans-serif;
+					color: #444;
+				}
+				.column {
+					display: table-cell;
+					padding: 7px 17px 7px 7px;
+					border-bottom: solid 1px #dfdfdf;
+				}
+				.flex-row {
+					display: table-row;
+					width: 100%;
+					padding: 0;
+				}
+				.flex-row:nth-child(odd) {
+					background-color: #f6f6f6;
+				}
+				.more { display: none }
+				.prop_detail, .prop_hood { white-space: nowrap; }
+
+			</style>
+    </head>
+    <body>
+		<script src="results.js"></script>
+		
+		<script>
+			config = {
+			locateFile: filename => `/dist/${filename}` 
+			}
+
+			let db = null
+
+			// The `initSqlJs` function is globally provided by all of the main dist files if loaded in the browser.
+			// We must specify this locateFile function if we are loading a wasm file from anywhere other than the current html page's folder.
+			initSqlJs(config).then(function(SQL){
+				//Create the database
+				var _db = new SQL.Database();
+
+				_db.run(`CREATE TABLE properties (
+					image1, price, expenses, hood, address, title, age, bathrooms, rooms,
+					bedrooms, professionals, position, size_in_m2, parking, url, image2, image3,
+					image4, image5, image6, image7, image8, image9, content);`);
+				data.forEach((row) => {
+					row[1] = parseInt(row[1]) || null // price
+					row[2] = parseInt(row[2]) || null // expenses
+					row[6] = parseInt(row[6]) || null // age
+					row[7] = parseInt(row[7]) || null // bathrooms
+					row[8] = parseInt(row[8]) || null // rooms
+					row[9] = parseInt(row[9]) || null // bedrooms
+					row[10] = row[10] === "true" ? true : row[10] === "false" ? false : null // professionals
+					row[12] = parseInt(row[12]) || null // size_in_m2
+					row[13] = parseInt(row[13]) || null // parking
+					_db.run("INSERT INTO properties VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row);
+				});
+
+				db = _db
+			})
+
+			const maybeRunQuery = (e) => {
+				if (e.keyCode != 13) {
+					return
+				}
+				const query = document.querySelector('#query').value
+				const result = db.exec(query);
+				const resultsRoot = document.querySelector('#result');
+				resultsRoot.innerHTML = '';
+			
+				if (!result || !result[0]) {
+					return
+				}
+				const cols = {}
+				result[0].columns.forEach((v, i) => cols[v] = i)
+
+				const rows = result[0].values.slice(2)
+				const properties = createTable(rows, cols)
+
+				resultsRoot.appendChild(properties)
+			}
+
+			const createTable = (rows, cols) => {
+				const createRow = (row, cols, i) => {
+					// const images = [
+					// 	row[cols['image1']],
+					// 	row[cols['image2']],
+					// 	row[cols['image3']],
+					// 	row[cols['image4']],
+					// 	row[cols['image5']],
+					// 	row[cols['image6']],
+					// 	row[cols['image7']],
+					// 	row[cols['image8']],
+					// 	row[cols['image9']],
+					// 	row[cols['image10']]
+					// ].filter(Boolean)
+
+					const age = row[cols['age']] ? row[cols['age']] + ' años' : '? años'
+					const bathrooms = row[cols['bathrooms']] ? row[cols['bathrooms']] + ' 🚽' : '? 🚽'
+					const rooms = row[cols['rooms']] ? row[cols['rooms']] + ' amb' : '? amb'
+					const bedrooms = row[cols['bedrooms']] ? row[cols['bedrooms']] + ' 🛏️' : '? 🛏️'
+					const professionals = row[cols['professionals']] ? '✅ prof' : '?'
+					const position = row[cols['position']] ? row[cols['position']] + '' : '?'
+					const size_in_m2 = row[cols['size_in_m2']] ? row[cols['size_in_m2']] + 'm²' : '? m²'
+					const parking = row[cols['parking']] ? row[cols['parking']] + ' 🚗' : '? 🚗'
+
+					return `
+						<div class="flex-row" role="rowgroup">
+							<div class="prop_link column" role="cell"><a href="${row[cols['url']]}" target="_blank">🔗</a></div>
+							<div class="prop_price column" role="cell">${pricify(row[cols['price']])}</div>
+							<div class="prop_expenses column" role="cell">${pricify(row[cols['expenses']])}</div>
+							<div class="prop_hood column" role="cell">${row[cols['hood']]}</div>
+							<div class="prop_detail column" role="cell">${age}</div>
+							<div class="prop_detail column" role="cell">${bathrooms}</div>
+							<div class="prop_detail column" role="cell">${rooms}</div>
+							<div class="prop_detail column" role="cell">${bedrooms}</div>
+							<div class="prop_detail column" role="cell">${professionals}</div>
+							<div class="prop_detail column" role="cell">${position}</div>
+							<div class="prop_detail column" role="cell">${size_in_m2}</div>
+							<div class="prop_detail column" role="cell">${parking}</div>
+							<div class="prop_address column" role="cell">${row[cols['address']]}</div>
+							<div class="prop_title column" role="cell">${row[cols['title']]}</div>
+						</div>
+					`
+				}
+
+				const pricify = (s) => {
+					const formatter = new Intl.NumberFormat('es-AR', {
+						style: 'currency',
+						currency: 'ARS',
+						maximumFractionDigits: 0, 
+  						minimumFractionDigits: 0
+					});
+					return formatter.format(s)
+				}
+
+				const domRoot = document.createElement("div")
+				domRoot.className = 'flex-table';
+				domRoot.setAttribute('role', 'table');
+				domRoot.innerHTML = rows.map((r, i) => createRow(r, cols, i)).join('');
+				console.log(domRoot)
+				return domRoot;
+			}
+
+			const toggleVisibility = (i) => {
+				toggleElemVisibility(document.querySelector("#images-"+i))
+				toggleElemVisibility(document.querySelector("#content-"+i))
+			}
+
+			const toggleElemVisibility = (elem) => {
+				if (elem.style.display === "none") {
+					elem.style.display = "block";
+				} else {
+					elem.style.display = "none";
+				}
+			}
+			
+		</script>
+
+		<input id="query" type="text" value="SELECT * FROM properties where hood in ('Almagro', 'San Cristobal') and size_in_m2 between 30 and 50 and bedrooms = 1 and (bathrooms = 1 or bathrooms is null) ORDER BY price, expenses" onkeypress="maybeRunQuery(event)" />
+		<div id="docs">
+				Fields: price, expenses, hood, address, title, age, bathrooms, rooms, 
+				bedrooms, professionals, position, size_in_m2, parking, url, image1, image2, ..., image10, content
+		</div>
+		<div id="result"></div>
+    </body>
+</html>
